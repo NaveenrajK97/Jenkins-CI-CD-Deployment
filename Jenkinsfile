@@ -4,11 +4,16 @@ pipeline {
     environment {
         DOCKER_IMAGE = "naveenrajk3/jenkins-cicd"
         DOCKER_TAG = "${BUILD_NUMBER}"
+
         DOCKER_CREDENTIALS = "dockerhub-credentials"
         EC2_CREDENTIALS = "ec2-ssh-key"
+
         EC2_USER = "ec2-user"
         EC2_HOST = "13.232.74.227"
+
         CONTAINER_NAME = "jenkins-cicd-app"
+
+        PYTHON = "C:\\Users\\navee\\AppData\\Local\\Programs\\Python\\Python314\\python.exe"
     }
 
     stages {
@@ -23,10 +28,11 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Installing application dependencies...'
+
                 bat '''
-                    python --version
-                    python -m pip --version
-                    python -m pip install -r requirements.txt
+                    "%PYTHON%" --version
+                    "%PYTHON%" -m pip --version
+                    "%PYTHON%" -m pip install -r requirements.txt
                 '''
             }
         }
@@ -34,8 +40,9 @@ pipeline {
         stage('Test') {
             steps {
                 echo 'Running application tests...'
+
                 bat '''
-                    python -m py_compile app.py
+                    "%PYTHON%" -m py_compile app.py
                     echo Application syntax test passed
                 '''
             }
@@ -44,6 +51,7 @@ pipeline {
         stage('Docker Build') {
             steps {
                 echo 'Building Docker image...'
+
                 bat '''
                     docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% .
                     docker tag %DOCKER_IMAGE%:%DOCKER_TAG% %DOCKER_IMAGE%:latest
