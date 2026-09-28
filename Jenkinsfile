@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // CHANGE THESE TWO VALUES BEFORE RUNNING
         DOCKER_IMAGE = "naveenrajk3/jenkins-cicd"
         DOCKER_TAG = "${BUILD_NUMBER}"
         DOCKER_CREDENTIALS = "dockerhub-credentials"
@@ -13,6 +12,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 echo 'Checking out source code from GitHub...'
@@ -23,10 +23,10 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Installing application dependencies...'
-                sh '''
-                    python3 --version
-                    pip3 --version
-                    pip3 install -r requirements.txt
+                bat '''
+                    python --version
+                    python -m pip --version
+                    python -m pip install -r requirements.txt
                 '''
             }
         }
@@ -34,9 +34,9 @@ pipeline {
         stage('Test') {
             steps {
                 echo 'Running application tests...'
-                sh '''
-                    python3 -m py_compile app.py
-                    echo "Application syntax test passed"
+                bat '''
+                    python -m py_compile app.py
+                    echo Application syntax test passed
                 '''
             }
         }
@@ -44,9 +44,9 @@ pipeline {
         stage('Docker Build') {
             steps {
                 echo 'Building Docker image...'
-                sh '''
-                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                    docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                bat '''
+                    docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% .
+                    docker tag %DOCKER_IMAGE%:%DOCKER_TAG% %DOCKER_IMAGE%:latest
                 '''
             }
         }
@@ -54,6 +54,7 @@ pipeline {
         stage('Docker Login & Push') {
             steps {
                 echo 'Pushing Docker image to Docker Hub...'
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: "${DOCKER_CREDENTIALS}",
@@ -61,10 +62,10 @@ pipeline {
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
                 ]) {
-                    sh '''
-                        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
-                        docker push ${DOCKER_IMAGE}:latest
+                    bat '''
+                        echo %DOCKER_PASSWORD% | docker login -u %DOCKER_USERNAME% --password-stdin
+                        docker push %DOCKER_IMAGE%:%DOCKER_TAG%
+                        docker push %DOCKER_IMAGE%:latest
                         docker logout
                     '''
                 }
@@ -74,11 +75,13 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 echo 'Deploying application to EC2...'
+
                 sshagent(credentials: ["${EC2_CREDENTIALS}"]) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "docker pull ${DOCKER_IMAGE}:latest && docker stop ${CONTAINER_NAME} || true"
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "docker rm ${CONTAINER_NAME} || true"
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "docker run -d --name ${CONTAINER_NAME} -p 8080:8080 ${DOCKER_IMAGE}:latest"
+                    bat '''
+                        ssh -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "docker pull %DOCKER_IMAGE%:latest"
+                        ssh -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "docker stop %CONTAINER_NAME% || true"
+                        ssh -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "docker rm %CONTAINER_NAME% || true"
+                        ssh -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "docker run -d --name %CONTAINER_NAME% -p 8080:8080 %DOCKER_IMAGE%:latest"
                     '''
                 }
             }
@@ -87,10 +90,11 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 echo 'Verifying application deployment...'
+
                 sshagent(credentials: ["${EC2_CREDENTIALS}"]) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "docker ps"
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "docker logs --tail 20 ${CONTAINER_NAME}"
+                    bat '''
+                        ssh -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "docker ps"
+                        ssh -o StrictHostKeyChecking=no %EC2_USER%@%EC2_HOST% "docker logs --tail 20 %CONTAINER_NAME%"
                     '''
                 }
             }
@@ -102,6 +106,7 @@ pipeline {
             echo 'CI/CD PIPELINE COMPLETED SUCCESSFULLY!'
             echo "Application URL: http://${EC2_HOST}:8080"
         }
+
         failure {
             echo 'CI/CD PIPELINE FAILED - Check Console Output.'
         }
